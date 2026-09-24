@@ -1,0 +1,54 @@
+# Central Configuration for Journal Entry Audit Analytics Platform
+
+dataset:
+  rows: 500000
+  seed: 42
+  start_date: "2024-04-01"  # Fiscal Year Start (e.g., FY2024-25)
+  end_date: "2025-03-31"    # Fiscal Year End
+  currency: "INR"
+
+approval:
+  threshold: 500000.00
+  near_threshold_percentage: 0.90  # Flags [450,000.00 to 499,999.99]
+
+posting_time:
+  unusual_before: 6   # Before 06:00:00 (e.g. 00:00 to 05:59:59)
+  unusual_after: 22   # After 22:00:00 (e.g. 22:00:01 to 23:59:59)
+
+round_amounts:
+  thresholds:
+    - 1000000.00  # 10 Lakhs
+    - 500000.00   # 5 Lakhs
+    - 250000.00   # 2.5 Lakhs
+    - 100000.00   # 1 Lakh
+    - 50000.00    # 50k
+    - 10000.00    # 10k
+
+risk_weights:
+  weekend: 1
+  holiday: 1
+  threshold: 2
+  round_amount: 1
+  unusual_time: 2
+  duplicate: 3
+  approval: 3
+
+risk_categories:
+  low_min: 0
+  low_max: 2
+  medium_min: 3
+  medium_max: 5
+  high_min: 6
+
+anomaly_injection:
+  weekend_count: 1200
+  holiday_count: 800
+  near_threshold_count: 1000
+  round_amount_count: 1500
+  unusual_time_count: 1200
+  duplicate_count: 900
+  missing_approval_count: 1400
+  multi_anomaly_count: 500
+
+database:
+  batch_size: 10000

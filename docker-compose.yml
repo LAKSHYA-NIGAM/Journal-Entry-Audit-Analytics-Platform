@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: journal_audit_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-journal_audit_db}
+      POSTGRES_USER: ${DB_USER:-audit_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-audit_secure_password_2026}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./database/seed_reference_data.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-audit_user} -d ${DB_NAME:-journal_audit_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+    driver: local
