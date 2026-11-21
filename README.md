@@ -1,6 +1,7 @@
 # Journal Entry Audit Analytics Platform
 ### *Enterprise Audit & Assurance – Data & Analytics Workflow*
 
+[![CI](https://github.com/LAKSHYA-NIGAM/Journal-Entry-Audit-Analytics-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/LAKSHYA-NIGAM/Journal-Entry-Audit-Analytics-Platform/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
 [![Pandas](https://img.shields.io/badge/Pandas-2.2%2B-150458.svg)](https://pandas.pydata.org/)
