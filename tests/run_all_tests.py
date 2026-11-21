@@ -97,9 +97,41 @@ class AuditPlatformTestSuite(unittest.TestCase):
         tmp_dir.mkdir(parents=True, exist_ok=True)
         test_full_pipeline_run(tmp_dir)
 
+    def test_18_empty_dataframe_validation_handling(self):
+        import pandas as pd
+        from src.utils.validation import DataValidator
+        validator = DataValidator(config={"dataset": {"rows": 100}})
+        empty_df = pd.DataFrame(columns=["journal_id", "amount", "debit_amount", "credit_amount", "entry_type"])
+        dummy_ref = pd.DataFrame()
+        res = validator.validate_journal_entries_df(empty_df, dummy_ref, dummy_ref, dummy_ref)
+        self.assertEqual(res["overall_status"], "FAILED", "Empty dataframe must not pass 100-row expectation")
+        self.assertFalse(res["amount_validation"]["passed"], "Empty dataframe amount validation must fail gracefully")
+
+    def test_19_negative_amount_validation_detection(self):
+        import pandas as pd
+        from src.utils.validation import DataValidator
+        validator = DataValidator(config={"dataset": {"rows": 1}})
+        test_df = pd.DataFrame([{
+            "journal_id": "JE_NEG_001",
+            "posting_date": "2024-04-10",
+            "posting_time": "10:00:00",
+            "user_id": "U1",
+            "department_id": "D1",
+            "account_code": "1000",
+            "amount": -500.0,
+            "entry_type": "DEBIT",
+            "debit_amount": -500.0,
+            "credit_amount": 0.0,
+            "approval_status": "AUTO_APPROVED"
+        }])
+        dummy_ref = pd.DataFrame({"user_id": ["U1"], "account_code": ["1000"], "department_id": ["D1"]})
+        res = validator.validate_journal_entries_df(test_df, dummy_ref, dummy_ref, dummy_ref)
+        self.assertFalse(res["amount_validation"]["passed"], "Negative amounts must fail amount validation")
+        self.assertEqual(res["amount_validation"]["invalid_count"], 1)
+
 if __name__ == "__main__":
     print("=" * 80)
-    print("      RUNNING COMPLETE JOURNAL ENTRY AUDIT SUITE (17 TEST CASES)")
+    print("      RUNNING COMPLETE JOURNAL ENTRY AUDIT SUITE (19 TEST CASES)")
     print("=" * 80)
     suite = unittest.TestLoader().loadTestsFromTestCase(AuditPlatformTestSuite)
     runner = unittest.TextTestRunner(verbosity=2)
