@@ -70,43 +70,73 @@ class DataValidator:
             all_passed = False
 
         # 4. Amount Validation
-        invalid_amounts = (df["amount"] <= 0) | df["amount"].isna() | np.isinf(df["amount"])
-        invalid_count = int(invalid_amounts.sum())
-        checks["amount_validation"] = {
-            "passed": invalid_count == 0,
-            "invalid_count": invalid_count,
-            "min_amount": float(df["amount"].min()),
-            "max_amount": float(df["amount"].max()),
-            "message": f"All amounts are positive and finite: {invalid_count == 0}"
-        }
+        if "amount" in df.columns and len(df) > 0:
+            numeric_amounts = pd.to_numeric(df["amount"], errors="coerce")
+            finite_floats = numeric_amounts.fillna(0.0).to_numpy(dtype=float)
+            invalid_amounts = (numeric_amounts <= 0) | numeric_amounts.isna() | np.isinf(finite_floats)
+            invalid_count = int(invalid_amounts.sum())
+            valid_series = numeric_amounts.dropna()
+            min_val = float(valid_series.min()) if not valid_series.empty else 0.0
+            max_val = float(valid_series.max()) if not valid_series.empty else 0.0
+            checks["amount_validation"] = {
+                "passed": invalid_count == 0,
+                "invalid_count": invalid_count,
+                "min_amount": min_val,
+                "max_amount": max_val,
+                "message": f"All amounts are positive and finite: {invalid_count == 0}"
+            }
+        else:
+            checks["amount_validation"] = {
+                "passed": False,
+                "invalid_count": len(df),
+                "min_amount": 0.0,
+                "max_amount": 0.0,
+                "message": "Missing 'amount' column or empty dataframe"
+            }
+
         if not checks["amount_validation"]["passed"]:
             all_passed = False
 
         # 5. Accounting Consistency Validation
-        invalid_debits = (df["debit_amount"] < 0).sum()
-        invalid_credits = (df["credit_amount"] < 0).sum()
-        mismatch_amounts = ((df["entry_type"] == "DEBIT") & (df["debit_amount"] != df["amount"])).sum() + \
-                           ((df["entry_type"] == "CREDIT") & (df["credit_amount"] != df["amount"])).sum()
-        
-        accounting_passed = (invalid_debits == 0) and (invalid_credits == 0) and (mismatch_amounts == 0)
-        checks["accounting_consistency"] = {
-            "passed": bool(accounting_passed),
-            "invalid_debits": int(invalid_debits),
-            "invalid_credits": int(invalid_credits),
-            "mismatch_amounts": int(mismatch_amounts),
-            "message": "Debit/Credit non-negative and consistent with entry amount"
-        }
+        has_acct_cols = (
+            "debit_amount" in df.columns and 
+            "credit_amount" in df.columns and 
+            "entry_type" in df.columns and 
+            "amount" in df.columns
+        )
+        if has_acct_cols:
+            invalid_debits = (df["debit_amount"] < 0).sum()
+            invalid_credits = (df["credit_amount"] < 0).sum()
+            mismatch_amounts = ((df["entry_type"] == "DEBIT") & (df["debit_amount"] != df["amount"])).sum() + \
+                               ((df["entry_type"] == "CREDIT") & (df["credit_amount"] != df["amount"])).sum()
+            accounting_passed = (invalid_debits == 0) and (invalid_credits == 0) and (mismatch_amounts == 0)
+            checks["accounting_consistency"] = {
+                "passed": bool(accounting_passed),
+                "invalid_debits": int(invalid_debits),
+                "invalid_credits": int(invalid_credits),
+                "mismatch_amounts": int(mismatch_amounts),
+                "message": "Debit/Credit non-negative and consistent with entry amount"
+            }
+        else:
+            accounting_passed = False
+            checks["accounting_consistency"] = {
+                "passed": False,
+                "invalid_debits": 0,
+                "invalid_credits": 0,
+                "mismatch_amounts": len(df),
+                "message": "Missing required accounting columns"
+            }
         if not accounting_passed:
             all_passed = False
 
         # 6. Referential Integrity Validation
-        valid_users = set(users_df["user_id"])
-        valid_accounts = set(accounts_df["account_code"])
-        valid_departments = set(departments_df["department_id"])
+        valid_users = set(users_df["user_id"]) if "user_id" in users_df.columns else set()
+        valid_accounts = set(accounts_df["account_code"]) if "account_code" in accounts_df.columns else set()
+        valid_departments = set(departments_df["department_id"]) if "department_id" in departments_df.columns else set()
 
-        orphan_users = (~df["user_id"].isin(valid_users)).sum()
-        orphan_accounts = (~df["account_code"].isin(valid_accounts)).sum()
-        orphan_depts = (~df["department_id"].isin(valid_departments)).sum()
+        orphan_users = int((~df["user_id"].isin(valid_users)).sum()) if "user_id" in df.columns else len(df)
+        orphan_accounts = int((~df["account_code"].isin(valid_accounts)).sum()) if "account_code" in df.columns else len(df)
+        orphan_depts = int((~df["department_id"].isin(valid_departments)).sum()) if "department_id" in df.columns else len(df)
 
         ref_passed = (orphan_users == 0) and (orphan_accounts == 0) and (orphan_depts == 0)
         checks["referential_integrity"] = {
@@ -122,17 +152,28 @@ class DataValidator:
         # 7. Date Range Validation
         start_date = str(self.config.get("dataset", {}).get("start_date", "2024-04-01"))
         end_date = str(self.config.get("dataset", {}).get("end_date", "2025-03-31"))
-        posting_dates = pd.to_datetime(df["posting_date"])
-        out_of_range = ((posting_dates < pd.to_datetime(start_date)) | (posting_dates > pd.to_datetime(end_date))).sum()
-        
-        checks["date_range_validation"] = {
-            "passed": int(out_of_range) == 0,
-            "out_of_range_count": int(out_of_range),
-            "min_date": str(posting_dates.min().date()),
-            "max_date": str(posting_dates.max().date()),
-            "message": f"Dates within fiscal window {start_date} to {end_date}"
-        }
-        if int(out_of_range) > 0:
+        if "posting_date" in df.columns and len(df) > 0:
+            posting_dates = pd.to_datetime(df["posting_date"], errors="coerce")
+            valid_dates = posting_dates.dropna()
+            out_of_range = ((valid_dates < pd.to_datetime(start_date)) | (valid_dates > pd.to_datetime(end_date))).sum() + (len(df) - len(valid_dates))
+            min_d = str(valid_dates.min().date()) if not valid_dates.empty else "N/A"
+            max_d = str(valid_dates.max().date()) if not valid_dates.empty else "N/A"
+            checks["date_range_validation"] = {
+                "passed": int(out_of_range) == 0,
+                "out_of_range_count": int(out_of_range),
+                "min_date": min_d,
+                "max_date": max_d,
+                "message": f"Dates within fiscal window {start_date} to {end_date}"
+            }
+        else:
+            checks["date_range_validation"] = {
+                "passed": False,
+                "out_of_range_count": len(df),
+                "min_date": "N/A",
+                "max_date": "N/A",
+                "message": "Missing 'posting_date' column or empty dataframe"
+            }
+        if not checks["date_range_validation"]["passed"]:
             all_passed = False
 
         checks["overall_status"] = "PASSED" if all_passed else "FAILED"
