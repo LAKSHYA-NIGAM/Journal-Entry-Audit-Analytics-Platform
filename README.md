@@ -12,6 +12,17 @@ An end-to-end, production-grade financial audit analytics system simulating a re
 
 ---
 
+## Advanced Forensic Modules
+
+### 8. Double-Entry Balance & Trial Balance Reconciler (`double_entry_validator.py`)
+- Enforces fundamental accounting balancing: $\sum \text{Debits} = \sum \text{Credits}$ per journal entry voucher.
+- Flags unbalanced entries with exact discrepancy amounts and accounts causing imbalance.
+- Calculates net trial balance across entire ledger population.
+
+### 9. SOX-404 Sequential Voucher & Backdated Entry Auditor (`sequence_integrity.py`)
+- Detects missing voucher gaps in integer numbering series to detect suppressed transactions.
+- Flags retroactively backdated postings where accounting effective date precedes creation date by more than 15 days.
+
 ## 1. Executive Summary & Audit Context
 
 ### The Core Audit Problem
